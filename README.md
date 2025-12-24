@@ -124,9 +124,12 @@ The tool can generate a GitLab-compatible Code Quality report.
 ```yaml
 code-quality:
   stage: test
+  image: ghcr.io/pixelvide/code-analyzer:latest
   script:
-    - ./code-analyzer -config=analysis-config.yaml
+    - /app/code-analyzer -config=/app/analysis-config.yaml
   artifacts:
+    reports:
+      codequality: gl-code-quality-report.json
     paths:
       - artifacts/*.json
       - gl-code-quality-report.json
