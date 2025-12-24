@@ -2,7 +2,7 @@ name: CI/CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "**" ]
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
   pull_request:
@@ -73,7 +73,21 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/debug
+          tags: |
+            type=semver,pattern={{version}}
+            type=ref,event=branch
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Debug Tags
+        run: |
+          echo "Generated Tags:"
+          echo "${{ steps.meta.outputs.tags }}"
+          echo "Generated Labels:"
+          echo "${{ steps.meta.outputs.labels }}"
 
       # Build and push Docker image with Buildx (don't push on PR)
       - name: Build and push Docker image
