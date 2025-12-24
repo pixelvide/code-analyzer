@@ -142,9 +142,8 @@ func main() {
 	if cfg.GitLabReport != "" {
 		// If configured with artifacts directory, put it there
 		reportPath := cfg.GitLabReport
-		if cfg.Output != "" && !filepath.IsAbs(reportPath) && !strings.Contains(reportPath, "/") {
-			reportPath = filepath.Join(cfg.Output, reportPath)
-		}
+		// We do NOT automatically join with cfg.Output anymore, as that forces it into artifacts/
+		// Users should specify full relative path in config if they want it in artifacts/
 
 		if err := generateGitLabReport(reportPath, allIssues); err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Failed to generate GitLab report: %v\n", err)
