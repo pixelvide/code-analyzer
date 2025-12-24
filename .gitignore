@@ -1,0 +1,11 @@
+# Binaries
+code-analyzer
+
+# Artifacts
+artifacts/
+*.json
+*.out
+*.log
+
+# OS specific
+.DS_Store

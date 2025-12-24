@@ -1,0 +1,43 @@
+# Global settings
+dir: "."
+output: "artifacts/"
+gitlab_report: "gl-code-quality-report.json"
+
+# Analyzer configurations
+analyzers:
+  html:
+    enabled: true
+    top: 5
+    min: 50
+    exclude:
+      - "public/fms"
+      - "test"
+      - "node_modules"
+      - "vendor"
+  
+  php:
+    enabled: true
+    min: 1
+    exclude:
+      - "Console"
+      - "Tests"
+      - "node_modules"
+      - "vendor"
+  
+  conflicts:
+    enabled: true
+    min: 1
+    exclude:
+      - "node_modules"
+      - "vendor"
+
+  js:
+    enabled: true
+    min: 50
+    exclude:
+      - "node_modules"
+      - "vendor"
+      - "dist"
+      - "build"
+      - ".next"
+
