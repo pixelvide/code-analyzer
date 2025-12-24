@@ -31,9 +31,9 @@ jobs:
           cache: false
 
       - name: Run Linters
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.54
+          version: latest
           working-directory: .
           args: --timeout=5m
 
