@@ -68,26 +68,31 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Extract metadata (tags, labels) for Docker
-      - name: Extract Docker metadata
-        id: meta
+      # Prod Metadata: Only for Releases (SemVer)
+      - name: Extract Prod Docker metadata
+        id: meta-prod
         uses: docker/metadata-action@v4
         with:
-          images: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/debug
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=semver,pattern={{version}}
-            type=ref,event=branch
-            type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Debug Metadata: Releases (SemVer) + Branches (Full SHA)
+      - name: Extract Debug Docker metadata
+        id: meta-debug
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/debug
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,format=long
 
       - name: Debug Tags
         run: |
-          echo "Generated Tags:"
-          echo "${{ steps.meta.outputs.tags }}"
-          echo "Generated Labels:"
-          echo "${{ steps.meta.outputs.labels }}"
+          echo "Prod Tags:"
+          echo "${{ steps.meta-prod.outputs.tags }}"
+          echo "Debug Tags:"
+          echo "${{ steps.meta-debug.outputs.tags }}"
 
       # Build and push Docker image with Buildx (don't push on PR)
       - name: Build and push Docker image
@@ -96,7 +101,11 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ steps.meta-prod.outputs.tags }}
+            ${{ steps.meta-debug.outputs.tags }}
+          labels: |
+            ${{ steps.meta-prod.outputs.labels }}
+            ${{ steps.meta-debug.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
