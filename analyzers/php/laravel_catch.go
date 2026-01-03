@@ -20,7 +20,9 @@ func (r *LaravelCatchBlockRule) Name() string {
 
 // LaravelCatchBlockFinding holds the issues found by the rule
 type LaravelCatchBlockFinding struct {
-	Issues []models.Issue
+	Issues         []models.Issue
+	MissingReport  int
+	MisplacedReport int
 }
 
 func (r *LaravelCatchBlockRule) Apply(content string) interface{} {
@@ -42,12 +44,16 @@ func (r *LaravelCatchBlockRule) Apply(content string) interface{} {
 	}
 
 	return LaravelCatchBlockFinding{
-		Issues: v.issues,
+		Issues:          v.issues,
+		MissingReport:   v.missingReport,
+		MisplacedReport: v.misplacedReport,
 	}
 }
 
 type catchVisitor struct {
-	issues []models.Issue
+	issues          []models.Issue
+	missingReport   int
+	misplacedReport int
 }
 
 // Ensure catchVisitor implements walker.Visitor
@@ -107,12 +113,14 @@ func (v *catchVisitor) analyzeCatch(n *stmt.Catch) {
 	}
 
 	if !foundReport {
+		v.missingReport++
 		v.issues = append(v.issues, models.Issue{
 			Description: "Critical: Catch block missing report() call in Laravel app file",
 			Line:        startLine,
 			Severity:    "critical",
 		})
 	} else if !isFirst {
+		v.misplacedReport++
 		v.issues = append(v.issues, models.Issue{
 			Description: "Medium Risk: report() call is not the first statement in catch block",
 			Line:        startLine,

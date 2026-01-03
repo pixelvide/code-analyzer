@@ -149,10 +149,13 @@ func (a *PHPAnalyzer) analyzeFile(path string) *models.PHPFileAnalysis {
 	}
 
 	// Apply Laravel Catch Block Rule
+	var catchMissing, catchMisplaced int
 	if strings.Contains(path, "app/") {
 		lcbRule := &LaravelCatchBlockRule{}
 		if finding := lcbRule.Apply(contentStr); finding != nil {
 			result := finding.(LaravelCatchBlockFinding)
+			catchMissing = result.MissingReport
+			catchMisplaced = result.MisplacedReport
 			for i := range result.Issues {
 				result.Issues[i].Path = path
 			}
@@ -171,6 +174,9 @@ func (a *PHPAnalyzer) analyzeFile(path string) *models.PHPFileAnalysis {
 			TotalBytes: len(content),
 		}
 	}
+
+	analysis.CatchBlocksMissingReport = catchMissing
+	analysis.CatchBlocksMisplacedReport = catchMisplaced
 
 	analysis.Issues = allIssues
 	return analysis
@@ -198,6 +204,12 @@ func (a *PHPAnalyzer) printResults(results []models.PHPFileAnalysis, totalFuncti
 			result.TotalFunctions,
 			result.CommentedFunctions,
 			result.CommentRatio)
+
+		// Optional: Print catch block warnings if present
+		if result.CatchBlocksMissingReport > 0 || result.CatchBlocksMisplacedReport > 0 {
+			fmt.Printf("      ⚠️  Catch Blocks: %d missing report(), %d misplaced\n",
+				result.CatchBlocksMissingReport, result.CatchBlocksMisplacedReport)
+		}
 	}
 
 	fmt.Println()
