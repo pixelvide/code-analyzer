@@ -60,6 +60,9 @@ type PHPFileAnalysis struct {
 	TotalBytes         int      `json:"total_bytes"`
 	CommentedBytes     int      `json:"commented_bytes"`
 	Issues             []Issue  `json:"issues"`
+	// Laravel Catch Block metrics
+	CatchBlocksMissingReport   int `json:"catch_blocks_missing_report,omitempty"`
+	CatchBlocksMisplacedReport int `json:"catch_blocks_misplaced_report,omitempty"`
 }
 
 // PHPAnalysisReport represents the complete PHP analysis report

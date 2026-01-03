@@ -23,6 +23,7 @@ func NewPHPAnalyzer() *PHPAnalyzer {
 	return &PHPAnalyzer{
 		rules: []analyzers.Rule{
 			&CommentedFunctionsRule{},
+			&LaravelCatchBlockRule{},
 		},
 	}
 }
@@ -57,10 +58,11 @@ func (a *PHPAnalyzer) Run(config analyzers.Config) ([]models.Issue, error) {
 
 		analysis := a.analyzeFile(path)
 		if analysis != nil {
-			if analysis.CommentedFunctions < config.MinValue {
+			// Skip if below threshold AND no other issues
+			if analysis.CommentedFunctions < config.MinValue && len(analysis.Issues) == 0 {
 				return nil
 			}
-			if config.MinRatio > 0 && analysis.CommentRatio < config.MinRatio {
+			if config.MinRatio > 0 && analysis.CommentRatio < config.MinRatio && len(analysis.Issues) == 0 {
 				return nil
 			}
 
@@ -111,43 +113,73 @@ func (a *PHPAnalyzer) analyzeFile(path string) *models.PHPFileAnalysis {
 	if err != nil {
 		return nil
 	}
+	contentStr := string(content)
+
+	var analysis *models.PHPFileAnalysis
+	var allIssues []models.Issue
 
 	// Apply commented functions rule
-	rule := &CommentedFunctionsRule{}
-	finding := rule.Apply(string(content))
+	cfRule := &CommentedFunctionsRule{}
+	if finding := cfRule.Apply(contentStr); finding != nil {
+		result := finding.(CommentedFunctionsFinding)
 
-	if finding == nil {
+		totalBytes := len(content)
+		commentedBytes := len(result.CommentedList) * 20 // rough estimate
+		ratio := 0.0
+		if len(result.AllFunctions) > 0 {
+			ratio = float64(len(result.CommentedList)) / float64(len(result.AllFunctions)) * 100
+		}
+
+		// Set path for issues
+		for i := range result.Issues {
+			result.Issues[i].Path = path
+		}
+		allIssues = append(allIssues, result.Issues...)
+
+		analysis = &models.PHPFileAnalysis{
+			Path:               path,
+			TotalFunctions:     len(result.AllFunctions),
+			CommentedFunctions: len(result.CommentedList),
+			FunctionList:       result.AllFunctions,
+			CommentedList:      result.CommentedList,
+			CommentRatio:       ratio,
+			TotalBytes:         totalBytes,
+			CommentedBytes:     commentedBytes,
+		}
+	}
+
+	// Apply Laravel Catch Block Rule
+	var catchMissing, catchMisplaced int
+	if strings.Contains(path, "app/") {
+		lcbRule := &LaravelCatchBlockRule{}
+		if finding := lcbRule.Apply(contentStr); finding != nil {
+			result := finding.(LaravelCatchBlockFinding)
+			catchMissing = result.MissingReport
+			catchMisplaced = result.MisplacedReport
+			for i := range result.Issues {
+				result.Issues[i].Path = path
+			}
+			allIssues = append(allIssues, result.Issues...)
+		}
+	}
+
+	if analysis == nil && len(allIssues) == 0 {
 		return nil
 	}
 
-	result := finding.(CommentedFunctionsFinding)
-	if len(result.CommentedList) == 0 {
-		return nil
+	if analysis == nil {
+		// Create a basic analysis object if we only have other issues
+		analysis = &models.PHPFileAnalysis{
+			Path:       path,
+			TotalBytes: len(content),
+		}
 	}
 
-	// Set path for issues
-	for i := range result.Issues {
-		result.Issues[i].Path = path
-	}
+	analysis.CatchBlocksMissingReport = catchMissing
+	analysis.CatchBlocksMisplacedReport = catchMisplaced
 
-	totalBytes := len(content)
-	commentedBytes := len(result.CommentedList) * 20 // rough estimate
-	ratio := 0.0
-	if len(result.AllFunctions) > 0 {
-		ratio = float64(len(result.CommentedList)) / float64(len(result.AllFunctions)) * 100
-	}
-
-	return &models.PHPFileAnalysis{
-		Path:               path,
-		TotalFunctions:     len(result.AllFunctions),
-		CommentedFunctions: len(result.CommentedList),
-		FunctionList:       result.AllFunctions,
-		CommentedList:      result.CommentedList,
-		CommentRatio:       ratio,
-		TotalBytes:         totalBytes,
-		CommentedBytes:     commentedBytes,
-		Issues:             result.Issues,
-	}
+	analysis.Issues = allIssues
+	return analysis
 }
 
 func (a *PHPAnalyzer) printResults(results []models.PHPFileAnalysis, totalFunctions, totalCommented int) {
@@ -172,6 +204,12 @@ func (a *PHPAnalyzer) printResults(results []models.PHPFileAnalysis, totalFuncti
 			result.TotalFunctions,
 			result.CommentedFunctions,
 			result.CommentRatio)
+
+		// Optional: Print catch block warnings if present
+		if result.CatchBlocksMissingReport > 0 || result.CatchBlocksMisplacedReport > 0 {
+			fmt.Printf("      ⚠️  Catch Blocks: %d missing report(), %d misplaced\n",
+				result.CatchBlocksMissingReport, result.CatchBlocksMisplacedReport)
+		}
 	}
 
 	fmt.Println()
